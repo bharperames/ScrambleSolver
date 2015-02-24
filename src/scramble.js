@@ -1,23 +1,27 @@
+// TODO: Eliminate all DOM (View) code from this file -- 
+//   or at split split into two pieces, view aware controller and core game logic
+//
 var GAME = {
     BoardSize:4,
     BoardCellSize:75,
     Letters:"deilstprlaenmlrs",
     Moves:[ {dx:-1,dy:-1}, {dx:0,dy:-1}, {dx:1,dy:-1}, {dx:-1,dy:0}, {dx:1,dy:0}, {dx:-1,dy:1}, {dx:0,dy:1}, {dx:1,dy:1} ],
-    LetterValues:{a:1,b:4,c:4,d:2,e:1,f:4,g:0,h:3,i:1,j:0,k:0,l:2,m:4,n:2,o:1,p:4,q:10,r:1,s:1,t:1,u:2,v:5,w:4,x:0,y:3,z:10},
+    LetterValues:{a:1,b:4,c:4,d:2,e:1,f:4,g:0,h:3,i:1,j:0,k:0,l:2,m:4,n:2,o:1,p:4,q:10,r:1,s:1,t:1,u:2,v:5,w:4,x:8,y:3,z:10},
     findAll:false,
-    MinWordLength:5
+    MinWordLength:5,
+    curLetterIndex: -1,
+    canvas: null
 };
 
-// Need: g,j,k,x
 
 GAME.setup = function() {
+    React.render(<ScrambleCanvas/>, document.getElementById('gameBoardCanvasDiv'));
     this.canvas = $('#gameBoardCanvas')[0];
     this.BoardCellSize = this.canvas.width / this.BoardSize;
     this.board  = this.constructBoard(GAME.BoardSize);
 
     this.wordTree = buildWordIndex(ENGLISHWORDS);
 
-    //this.addClickHandler();
     this.restartGame();
 }
 
@@ -67,8 +71,6 @@ GAME.startGame = function()
 	this.showAllWords();
 }
 
-var foundWords = {};
-
 GAME.getWordLetters = function()
 {
 	var wordLetters = [];
@@ -91,14 +93,14 @@ GAME.showAllWords = function()
     {
 		cellLetter  = this.board[i];
 		wordListObj = this.findCellWords(i);
-//		console.log("Words for " + i + " are " + words);
 
-		var wordList = "";
-		for (j = 0; j < wordListObj.words.length; j++) {
-//  		    console.log("FOUND WORD: " + words[j] + " " + this.wordValue(words[j]));	
-  		    wordList += (this.returnWord(wordListObj.words[j]) + " ");
-		}
-//		console.log("FOUND WORDS: " + wordList);
+		// console.log("Words for " + i + " are " + wordListObj.words);
+		// var wordList = "";
+		// for (j = 0; j < wordListObj.words.length; j++) {
+		// 	console.log("FOUND WORD: " + wordListObj.words[j] + " " + this.wordValue(wordListObj.words[j]));	
+		// 	wordList += (wordListObj.words[j] + " ");
+		// }
+		// console.log("FOUND WORDS: " + wordList);
 
 		totalWords += wordListObj.words.length;
 		results += (cellLetter.toUpperCase() + " :: " + wordListObj.words + "\n");
@@ -108,16 +110,9 @@ GAME.showAllWords = function()
     $('#results')[0].value = results;
 }
 
-GAME.returnWord = function(wordText) {
-	var returnText = "";
-	var returnValue = 0;
-	for (var w = 0; w < wordText.length; w++) {
-		returnText += wordText.substring(w, w+1);
-		returnValue += GAME.LetterValues[wordText.substring(w, w+1)];
-	}
-	return returnValue;
-}
-
+// Compute word value, considering letter values
+//  TODO: Add ability to specify which tiles are double-word, triple-word, etc...
+//
 GAME.wordValue = function(word)
 {
     // console.log(word);
@@ -130,49 +125,33 @@ GAME.wordValue = function(word)
 			value += GAME.LetterValues[letter];
 		}
 	}
+
 	return value;
 }
 
-GAME.addClickHandler = function() {
-	this.canvas.game = this;
-	this.canvas.addEventListener('click', function(e) {
-		var cx = Math.floor(e.offsetX / GAME.BoardCellSize);
-		var cy = Math.floor(e.offsetY / GAME.BoardCellSize);
-		var cellNum = cy*GAME.BoardSize+cx;
-
-		this.game.handleUserMove(cellNum); // TODO: why 'this.game' ?
-	}, false);
-}
-
-GAME.handleUserMove = function(cellNum)
-{
-    console.log("Clicked on cell: "+cellNum+" letter: "+GAME.Letters[cellNum]);
-    this.findCellWords(cellNum);
-}
-
-GAME.showWord = function(cellNum) {
-	globalShowWord();
-}
 
 // Return an object with two parallel arrays: {[words], [wordPaths]}
+//  TODO: Elsewhere this structure is transformed into a single array of tuples, unify that
+//
 GAME.findCellWords = function(cellNum)
 {
     var cellLetter = this.board[cellNum];
 
     var wordNode = this.wordTree[cellLetter];
     if (wordNode == undefined) {
-		console.log("No words start with: " + cellLetter);
+		// console.log("No words start with: " + cellLetter);
 		return;
     }
 
     var visitedCells = [false, false, false, false, false, false, false, false, false];
     var returnObj = this.findWords(cellNum, visitedCells, wordNode, "", []);
 
-	// returnObj.words = returnObj.words.sort(function(a, b) {return (GAME.returnWord(a) > GAME.returnWord(b))? -1 : 1 ;});
-
     return returnObj;
 }
 
+// Recursive function to explore cell space one letter move at a time along paths found
+//   in the word tree
+//
 GAME.findWords = function(cellNum, visitedCells, wordNode, partialWord, partialPath) {
 	// Return an object with two parallel arrays: {[words], [wordPaths]}
 	var returnObj   = {words: [], wordPaths: []};
@@ -222,13 +201,6 @@ GAME.findWords = function(cellNum, visitedCells, wordNode, partialWord, partialP
 		if (nextWordNode == undefined)
 		    continue;
 
-		// Special case 'Q' tile on board, treat it as "Qu"
-//		if (nextCellLetter == 'q') {
-//			partialWord += 'q';
-//			nextWordNode = wordNode['u'];
-//			if (nextWordNode == undefined)
-//		    	continue; // This can't happen in Scramble, no Q words without a "U" next
-//		}
 		recurPartialPath = partialPath.concat();
 		recurPartialPath.push(i);
 		var newWords = this.findWords(nextCellNum, local_visitedCells, nextWordNode, partialWord, recurPartialPath);
@@ -248,6 +220,83 @@ GAME.findWords = function(cellNum, visitedCells, wordNode, partialWord, partialP
     return returnObj;
 }
 
+// TODO: Find better way to encapsulte the overlay segment information
+//   - how to provide local state to timer function, unless it is defined as closure?
+// 
+//  { var local_vars; timer function {use local_vars}; start function {set local_vars} }
+//
+// ** This experiment didn't work, for some reason pathSegmentTimerId was undefined in the body of function below...
+// var OverlaySegment = {
+// 	pathSegmentsX:[],
+// 	pathSegmentsY:[],
+//  	pathSegmentIndex:-1,
+//  	pathSegmentTimerId:-1,
+//  	pathSegmentContext:null,
+
+//  	// Private
+//  	drawWordLineOverlaySegment: function()
+// 	{
+// 		if (pathSegmentIndex < 0)
+// 			return;
+
+// 		GAME.clearBoard();
+
+// 	    pathSegmentContext.beginPath();
+
+// 		pathSegmentContext.moveTo(pathSegmentsX[0], pathSegmentsY[0]);
+// 	    for (var j = 1; j <= pathSegmentIndex+1; j++)
+// 	    {
+// 			pathSegmentContext.lineTo(pathSegmentsX[j], pathSegmentsY[j]);
+// 	    }
+// 		pathSegmentIndex++;
+// 		if (pathSegmentIndex == pathSegmentsX.length-1)
+// 			pathSegmentIndex = 0;
+
+// 	    pathSegmentContext.strokeStyle = "purple";
+// 	    pathSegmentContext.lineJoin    = "round";
+// 	    pathSegmentContext.lineCap     = "round";
+// 	    pathSegmentContext.lineWidth   = 15;
+// 	    pathSegmentContext.strokeStyle = 'rgba(255,0,255,0.2)';
+// 	    pathSegmentContext.stroke();
+
+// 	    var waitTime = (pathSegmentIndex == 0)? 1000 : 200;
+// 	   	pathSegmentTimerId = setTimeout(drawWordLineOverlaySegment, waitTime);
+// 	},
+
+// 	drawWordLineOverlay: function(cellNum, word, wordPath)
+// 	{
+// 		// Calculate the path once, then setup a timer to animate it over time.
+// 		//
+// 	    var cell_coords = GAME.board.cellCoordinates(cellNum);
+// 	    var cx          = (cell_coords.cx + .35) * GAME.BoardCellSize;
+// 	    var cy          = (cell_coords.cy + .65) * GAME.BoardCellSize;
+
+// 		pathSegmentsX = [cx];
+// 		pathSegmentsY = [cy];
+// 		pathSegmentIndex = 0;
+// 		pathSegmentContext = GAME.canvas.getContext("2d");
+
+// 		wordPath.map(
+// 			function(arrayElemValue) {
+// 				var movePair = GAME.Moves[arrayElemValue];
+// 				cx += movePair.dx * GAME.BoardCellSize;
+// 				cy += movePair.dy * GAME.BoardCellSize;
+// 				pathSegmentsX.push(cx);
+// 				pathSegmentsY.push(cy);
+// 			}
+// 		);
+
+// 		if (pathSegmentTimerId != -1)
+// 			clearInterval(pathSegmentTimerId);
+// 		pathSegmentTimerId = setTimeout(drawWordLineOverlaySegment, WAIT_TIME);
+// 	}
+// }
+
+// GAME.drawWordLineOverlay = function(cellNum, word, wordPath)
+// {
+// 	OverlaySegment.drawWordLineOverlay(cellNum, word, wordPath);
+// }
+
 const WAIT_TIME = 200;
 var pathSegmentsX = [];
 var pathSegmentsY = [];
@@ -255,6 +304,7 @@ var pathSegmentIndex = -1;
 var pathSegmentTimerId = -1;
 var pathSegmentContext;
 
+// Private
 GAME.drawWordLineOverlaySegment = function()
 {
 	if (pathSegmentIndex < 0)
@@ -348,17 +398,20 @@ GAME.constructBoard = function(boardSize)
     board.boardSize = boardSize;
 
     board.cellNumber = function (x, y) {
-	return this.boardSize*y + x;
+		return this.boardSize*y + x;
     } 
 
     board.cellCoordinates = function (cellNum) {
-	var cy = Math.floor(cellNum / this.boardSize);
-	var cx = cellNum - cy*this.boardSize;
-	return {cx:cx, cy:cy};
+		var cy = Math.floor(cellNum / this.boardSize);
+		var cx = cellNum - cy*this.boardSize;
+		return {cx:cx, cy:cy};
     } 
 
     return board;
 }
+
+
+GAME.setup();
 
 
 function alert(msg) {
@@ -369,6 +422,9 @@ function alert(msg) {
  	console.log(msg) 
 };
 
+//
+// Word Tree data structures and algorithm
+//
 
 function WordNode(letter) {
     return {letter:letter};
