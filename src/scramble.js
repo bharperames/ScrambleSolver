@@ -220,147 +220,85 @@ GAME.findWords = function(cellNum, visitedCells, wordNode, partialWord, partialP
     return returnObj;
 }
 
-// TODO: Find better way to encapsulte the overlay segment information
+// TODO: Find better way to encapsulate the overlay segment information
 //   - how to provide local state to timer function, unless it is defined as closure?
 // 
-//  { var local_vars; timer function {use local_vars}; start function {set local_vars} }
-//
-// ** This experiment didn't work, for some reason pathSegmentTimerId was undefined in the body of function below...
-// var OverlaySegment = {
-// 	pathSegmentsX:[],
-// 	pathSegmentsY:[],
-//  	pathSegmentIndex:-1,
-//  	pathSegmentTimerId:-1,
-//  	pathSegmentContext:null,
+var OverlaySegment = function() {
 
-//  	// Private
-//  	drawWordLineOverlaySegment: function()
-// 	{
-// 		if (pathSegmentIndex < 0)
-// 			return;
+	var that = {};
+	that.pathSegmentsX = [];
+	that.pathSegmentsY = [];
+ 	that.pathSegmentIndex = -1;
+ 	that.pathSegmentTimerId = -1;
+ 	that.pathSegmentContext = null;
 
-// 		GAME.clearBoard();
+ 	// Private
+ 	that.drawWordLineOverlaySegment = function()
+	{
+		if (OverlaySegment.pathSegmentIndex < 0)
+			return;
 
-// 	    pathSegmentContext.beginPath();
+		GAME.clearBoard();
 
-// 		pathSegmentContext.moveTo(pathSegmentsX[0], pathSegmentsY[0]);
-// 	    for (var j = 1; j <= pathSegmentIndex+1; j++)
-// 	    {
-// 			pathSegmentContext.lineTo(pathSegmentsX[j], pathSegmentsY[j]);
-// 	    }
-// 		pathSegmentIndex++;
-// 		if (pathSegmentIndex == pathSegmentsX.length-1)
-// 			pathSegmentIndex = 0;
+	    OverlaySegment.pathSegmentContext.beginPath();
 
-// 	    pathSegmentContext.strokeStyle = "purple";
-// 	    pathSegmentContext.lineJoin    = "round";
-// 	    pathSegmentContext.lineCap     = "round";
-// 	    pathSegmentContext.lineWidth   = 15;
-// 	    pathSegmentContext.strokeStyle = 'rgba(255,0,255,0.2)';
-// 	    pathSegmentContext.stroke();
+		OverlaySegment.pathSegmentContext.moveTo(OverlaySegment.pathSegmentsX[0], OverlaySegment.pathSegmentsY[0]);
+	    for (var j = 1; j <= OverlaySegment.pathSegmentIndex+1; j++)
+	    {
+			OverlaySegment.pathSegmentContext.lineTo(OverlaySegment.pathSegmentsX[j], OverlaySegment.pathSegmentsY[j]);
+	    }
+		OverlaySegment.pathSegmentIndex++;
+		if (OverlaySegment.pathSegmentIndex == OverlaySegment.pathSegmentsX.length-1)
+			OverlaySegment.pathSegmentIndex = 0;
 
-// 	    var waitTime = (pathSegmentIndex == 0)? 1000 : 200;
-// 	   	pathSegmentTimerId = setTimeout(drawWordLineOverlaySegment, waitTime);
-// 	},
+	    OverlaySegment.pathSegmentContext.strokeStyle = "purple";
+	    OverlaySegment.pathSegmentContext.lineJoin    = "round";
+	    OverlaySegment.pathSegmentContext.lineCap     = "round";
+	    OverlaySegment.pathSegmentContext.lineWidth   = 15;
+	    OverlaySegment.pathSegmentContext.strokeStyle = 'rgba(255,0,255,0.2)';
+	    OverlaySegment.pathSegmentContext.stroke();
 
-// 	drawWordLineOverlay: function(cellNum, word, wordPath)
-// 	{
-// 		// Calculate the path once, then setup a timer to animate it over time.
-// 		//
-// 	    var cell_coords = GAME.board.cellCoordinates(cellNum);
-// 	    var cx          = (cell_coords.cx + .35) * GAME.BoardCellSize;
-// 	    var cy          = (cell_coords.cy + .65) * GAME.BoardCellSize;
+	    var waitTime = (OverlaySegment.pathSegmentIndex == 0)? 1000 : 200;
+	   	OverlaySegment.pathSegmentTimerId = setTimeout(OverlaySegment.drawWordLineOverlaySegment, waitTime);
+	};
 
-// 		pathSegmentsX = [cx];
-// 		pathSegmentsY = [cy];
-// 		pathSegmentIndex = 0;
-// 		pathSegmentContext = GAME.canvas.getContext("2d");
+	that.drawWordLineOverlay = function(cellNum, word, wordPath)
+	{
+		// Calculate the path once, then setup a timer to animate it over time.
+		//
+	    var cell_coords = GAME.board.cellCoordinates(cellNum);
+	    var cx          = (cell_coords.cx + .35) * GAME.BoardCellSize;
+	    var cy          = (cell_coords.cy + .65) * GAME.BoardCellSize;
 
-// 		wordPath.map(
-// 			function(arrayElemValue) {
-// 				var movePair = GAME.Moves[arrayElemValue];
-// 				cx += movePair.dx * GAME.BoardCellSize;
-// 				cy += movePair.dy * GAME.BoardCellSize;
-// 				pathSegmentsX.push(cx);
-// 				pathSegmentsY.push(cy);
-// 			}
-// 		);
+		OverlaySegment.pathSegmentsX = [cx];
+		OverlaySegment.pathSegmentsY = [cy];
+		OverlaySegment.pathSegmentIndex = 0;
+		OverlaySegment.pathSegmentContext = GAME.canvas.getContext("2d");
 
-// 		if (pathSegmentTimerId != -1)
-// 			clearInterval(pathSegmentTimerId);
-// 		pathSegmentTimerId = setTimeout(drawWordLineOverlaySegment, WAIT_TIME);
-// 	}
-// }
+		wordPath.map(
+			function(arrayElemValue) {
+				var movePair = GAME.Moves[arrayElemValue];
+				cx += movePair.dx * GAME.BoardCellSize;
+				cy += movePair.dy * GAME.BoardCellSize;
+				OverlaySegment.pathSegmentsX.push(cx);
+				OverlaySegment.pathSegmentsY.push(cy);
+			}
+		);
 
-// GAME.drawWordLineOverlay = function(cellNum, word, wordPath)
-// {
-// 	OverlaySegment.drawWordLineOverlay(cellNum, word, wordPath);
-// }
+		if (OverlaySegment.pathSegmentTimerId != -1)
+			clearInterval(OverlaySegment.pathSegmentTimerId);
+		OverlaySegment.pathSegmentTimerId = setTimeout(OverlaySegment.drawWordLineOverlaySegment, 200);
+	}
 
-const WAIT_TIME = 200;
-var pathSegmentsX = [];
-var pathSegmentsY = [];
-var pathSegmentIndex = -1;
-var pathSegmentTimerId = -1;
-var pathSegmentContext;
-
-// Private
-GAME.drawWordLineOverlaySegment = function()
-{
-	if (pathSegmentIndex < 0)
-		return;
-
-	GAME.clearBoard();
-
-    pathSegmentContext.beginPath();
-
-	pathSegmentContext.moveTo(pathSegmentsX[0], pathSegmentsY[0]);
-    for (var j = 1; j <= pathSegmentIndex+1; j++)
-    {
-		pathSegmentContext.lineTo(pathSegmentsX[j], pathSegmentsY[j]);
-    }
-	pathSegmentIndex++;
-	if (pathSegmentIndex == pathSegmentsX.length-1)
-		pathSegmentIndex = 0;
-
-    pathSegmentContext.strokeStyle = "purple";
-    pathSegmentContext.lineJoin    = "round";
-    pathSegmentContext.lineCap     = "round";
-    pathSegmentContext.lineWidth   = 15;
-    pathSegmentContext.strokeStyle = 'rgba(255,0,255,0.2)';
-    pathSegmentContext.stroke();
-
-    var waitTime = (pathSegmentIndex == 0)? 1000 : WAIT_TIME;
-   	pathSegmentTimerId = setTimeout(GAME.drawWordLineOverlaySegment, waitTime);
-}
+	return that;
+}();
 
 GAME.drawWordLineOverlay = function(cellNum, word, wordPath)
 {
-	// Calculate the path once, then setup a timer to animate it over time.
-	//
-    var cell_coords = GAME.board.cellCoordinates(cellNum);
-    var cx          = (cell_coords.cx + .35) * GAME.BoardCellSize;
-    var cy          = (cell_coords.cy + .65) * GAME.BoardCellSize;
-
-	pathSegmentsX = [cx];
-	pathSegmentsY = [cy];
-	pathSegmentIndex = 0;
-	pathSegmentContext = this.canvas.getContext("2d");
-
-	wordPath.map(
-		function(arrayElemValue) {
-			var movePair = GAME.Moves[arrayElemValue];
-			cx += movePair.dx * GAME.BoardCellSize;
-			cy += movePair.dy * GAME.BoardCellSize;
-			pathSegmentsX.push(cx);
-			pathSegmentsY.push(cy);
-		}
-	);
-
-	if (pathSegmentTimerId != -1)
-		clearInterval(pathSegmentTimerId);
-	pathSegmentTimerId = setTimeout(GAME.drawWordLineOverlaySegment, WAIT_TIME);
+	OverlaySegment.drawWordLineOverlay(cellNum, word, wordPath);
 }
+
+
 
 GAME.drawText = function(cellNum, text)
 {
