@@ -8,7 +8,7 @@ var GAME = {
     Moves:[ {dx:-1,dy:-1}, {dx:0,dy:-1}, {dx:1,dy:-1}, {dx:-1,dy:0}, {dx:1,dy:0}, {dx:-1,dy:1}, {dx:0,dy:1}, {dx:1,dy:1} ],
     LetterValues:{a:1,b:4,c:4,d:2,e:1,f:4,g:0,h:3,i:1,j:0,k:0,l:2,m:4,n:2,o:1,p:4,q:10,r:1,s:1,t:1,u:2,v:5,w:4,x:8,y:3,z:10},
     findAll:false,
-    MinWordLength:5,
+    minWordValue:8,
     curLetterIndex: -1,
     canvas: null
 };
@@ -16,6 +16,9 @@ var GAME = {
 
 GAME.setup = function() {
     React.render(<ScrambleCanvas/>, document.getElementById('gameBoardCanvasDiv'));
+    $('#letters')[0].value = this.Letters;
+    $('#minValue')[0].value = this.minWordValue;
+
     this.canvas = $('#gameBoardCanvas')[0];
     this.BoardCellSize = this.canvas.width / this.BoardSize;
     this.board  = this.constructBoard(GAME.BoardSize);
@@ -35,6 +38,8 @@ GAME.restartGame = function()
 		letters.value = this.Letters;
 	}
 	this.findAll = $('#findall')[0].checked;
+	this.minWordValue = parseInt($('#minValue')[0].value);
+		
     this.clearBoard();
     this.startGame();
 }
@@ -112,7 +117,7 @@ GAME.showAllWords = function()
 
 // Compute word value, considering letter values
 //  TODO: Add ability to specify which tiles are double-word, triple-word, etc...
-//
+//  Note: This function is too slow to use during word find... hangs Chrome
 GAME.wordValue = function(word)
 {
     // console.log(word);
@@ -129,7 +134,6 @@ GAME.wordValue = function(word)
 	return value;
 }
 
-
 // Return an object with two parallel arrays: {[words], [wordPaths]}
 //  TODO: Elsewhere this structure is transformed into a single array of tuples, unify that
 //
@@ -144,7 +148,7 @@ GAME.findCellWords = function(cellNum)
     }
 
     var visitedCells = [false, false, false, false, false, false, false, false, false];
-    var returnObj = this.findWords(cellNum, visitedCells, wordNode, "", []);
+    var returnObj = this.findWords(cellNum, visitedCells, wordNode, "", 0, []);
 
     return returnObj;
 }
@@ -152,7 +156,7 @@ GAME.findCellWords = function(cellNum)
 // Recursive function to explore cell space one letter move at a time along paths found
 //   in the word tree
 //
-GAME.findWords = function(cellNum, visitedCells, wordNode, partialWord, partialPath) {
+GAME.findWords = function(cellNum, visitedCells, wordNode, partialWord, partialWordValue, partialPath) {
 	// Return an object with two parallel arrays: {[words], [wordPaths]}
 	var returnObj   = {words: [], wordPaths: []};
     var cell_coords = this.board.cellCoordinates(cellNum);
@@ -164,10 +168,12 @@ GAME.findWords = function(cellNum, visitedCells, wordNode, partialWord, partialP
 
 	// Determine if existing partial word + this cell is a final word
     partialWord += wordNode.letter;
+    partialWordValue += GAME.LetterValues[wordNode.letter];
 
-    if (wordNode.final != undefined) {
-		if (returnObj.words.indexOf(partialWord) == -1 && (this.findAll || partialWord.length >= this.MinWordLength))
+    if (wordNode.final != undefined) {   	
+		if (returnObj.words.indexOf(partialWord) == -1 && (this.findAll || partialWordValue >= this.minWordValue))
 		{
+			// console.log(partialWord + ":" + partialWordValue);
 			// console.log(partialWord + ":" + partialPath.join(","));
 		    returnObj.words.push(partialWord);
 		    returnObj.wordPaths.push(partialPath);
@@ -203,7 +209,7 @@ GAME.findWords = function(cellNum, visitedCells, wordNode, partialWord, partialP
 
 		recurPartialPath = partialPath.concat();
 		recurPartialPath.push(i);
-		var newWords = this.findWords(nextCellNum, local_visitedCells, nextWordNode, partialWord, recurPartialPath);
+		var newWords = this.findWords(nextCellNum, local_visitedCells, nextWordNode, partialWord, partialWordValue, recurPartialPath);
 		for (var w=0;w<newWords.words.length;w++) {
 			// For each of the words found in this iteration add them to the
 			//  composite list if not already in list
